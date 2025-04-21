@@ -1,0 +1,2 @@
+class DELLA:
+    pass

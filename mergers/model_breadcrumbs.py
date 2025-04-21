@@ -1,0 +1,2 @@
+class ModelBreadcrumbs:
+    pass

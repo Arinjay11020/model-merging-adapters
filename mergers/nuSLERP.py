@@ -1,0 +1,2 @@
+class NuSLERP:
+    pass

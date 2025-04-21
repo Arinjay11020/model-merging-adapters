@@ -1,0 +1,2 @@
+class SLERP:
+    pass
