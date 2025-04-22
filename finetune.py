@@ -4,7 +4,7 @@ import sys
 import fire 
 import torch
 import transformers
-from transformers import AutoTokenizer,AutoModelForCausalLM,AutoModel,AutoConfig,HFArgumentParser
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, AutoConfig, HFArgumentParser
 from datasets import load_dataset
 from typing import List, Optional, Union
 from peft.src.peft import (
@@ -88,4 +88,10 @@ class TrainingArguments:
     )
 @dataclass
 class PEFTArguments:
-    pass
+    adapter_type: str=field(
+        default="LoRA",
+        metadata={"help":"The choice of PEFT"},
+        choices=["LoRA","AdaLoRA","DoRA","Prefix-Tuning"]
+    )
+
+    
