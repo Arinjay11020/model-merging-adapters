@@ -1,12 +1,13 @@
 #Right now trying to add only a few finetuning ways, might be tailored to LLM only
 import os
 import sys
-import fire 
+import fire
+import random
 import torch
 import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, AutoConfig, HFArgumentParser
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoModel, AutoConfig, HFArgumentParser, set_seed
 from datasets import load_dataset
-from typing import List, Optional, Union
+from typing import List, Optional, Union, ClassVar
 from peft.src.peft import (
     get_peft_config,get_peft_model,
     TaskType,
@@ -25,7 +26,7 @@ from peft.src.peft.tuners.prefix_tuning import PrefixTuningConfig
 from dataclasses import dataclass,field
 from preprocess_dataset import preprocess_dataset,tokenize,generate_and_tokenize_prompt,generate_prompt
 @dataclass
-class DataArgs:
+class DataArguments:
     task_name:Optional[list]=field(
         default=None,
         metadata={"help":"The name of the dataset"}
@@ -58,6 +59,10 @@ class ModelArguments:
     )
 @dataclass
 class TrainingArguments:
+    seed:int=field(
+        default=42,
+        metadata={"help":"sets seeds for numpy, python, transformers, cuda, pytorch, and environment"}
+    )
     batch_size: int=field(
         default=16,
         metadata={"help":"the batch size"}
@@ -90,8 +95,66 @@ class TrainingArguments:
 class PEFTArguments:
     adapter_type: str=field(
         default="LoRA",
-        metadata={"help":"The choice of PEFT"},
-        choices=["LoRA","AdaLoRA","DoRA","Prefix-Tuning"]
+        metadata={"help":"The choice of PEFT"}
     )
-
+    _valid_adapter_types: ClassVar[List[str]]=["LoRA","AdaLoRA","DoRA","Prefix-Tuning"]
+    lora_r: Optional[int]=field(
+        default=32,
+        metadata={"help":"LoRA rank for LoRA"}
+    )
+    lora_alpha: Optional[int]=field(
+        default=64,
+        metadata={"help":"LoRA alpha for LoRA"}
+    )
+    lora_droput: Optional[int]=field(
+        default=0.05
+    )
+    target_modules: Optional[Union[list[str], str]]=field(
+        default=["q_proj","k_proj","v_proj","up_proj","down_proj"],
+        metadata={"help":"Layers to apply PEFT modules"}
+    )
+    initial_rank: Optional[int]=field(
+        default=32,
+        metadata={"help":"Initial rank for AdALoRA"}
+    )
+    target_rank: Optional[int]=field(
+        default=48,
+        metadata={"help":"Target rank for AdaLoRA"}
+    )
+    use_dora: Optional[bool]=field(
+        default=False,
+        metadata={"help":"Set it true for DoRA, rn DoRA only supports ConV2d and Linear Layers"}
+    )
+    def __post_init__(self):
+        if self.adapter_type not in self._valid_adapter_types:
+            raise ValueError(
+                f"Invalid adapter_type: '{self.adapter_type}'. "
+                f"Must be one of {self._valid_adapter_types}."
+            )
+@dataclass
+class LLMArguments:
+    train_on_inputs: Optional[bool]=field(
+        default=True,
+        metadata={"help":"If false, masks out the inputs in loss"}
+    )
+    group_by_length: Optional[bool]=field(
+        default=False,
+        metadata={"help":"faster, but produces an odd training curve"}
+    )
+def set_seed(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic=True
+    torch.backends.cudnn.benchmarks=False
+    set_seed(seed)
+    os.environ['PYTHONHASHSEED']= '0'
     
+def main():
+    parser=HFArgumentParser((DataArguments,ModelArguments,TrainingArguments,PEFTArguments,LLMArguments))
+    data_args,model_args,training_args,peft_args,llm_args=parser.parse_args_into_dataclasses()
+    set_seed(42)
+    gradient_accumulation_steps=training_args.batch_size//training_args.micro_batch_size
+    
+        
