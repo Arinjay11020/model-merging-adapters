@@ -141,7 +141,7 @@ class LLMArguments:
         default=False,
         metadata={"help":"faster, but produces an odd training curve"}
     )
-def set_seed(seed):
+def fix_seed(seed):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -154,7 +154,7 @@ def set_seed(seed):
 def main():
     parser=HFArgumentParser((DataArguments,ModelArguments,TrainingArguments,PEFTArguments,LLMArguments))
     data_args,model_args,training_args,peft_args,llm_args=parser.parse_args_into_dataclasses()
-    set_seed(42)
+    fix_seed(42)
     gradient_accumulation_steps=training_args.batch_size//training_args.micro_batch_size
     
         
