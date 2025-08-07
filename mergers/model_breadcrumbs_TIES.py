@@ -1,2 +1,0 @@
-class ModelBreadcrumbsTIES:
-    pass

@@ -21,8 +21,8 @@ def preprocess_dataset(task_name,task_type,concat_train,task_modality):#task_typ
     pass
 def generate_and_tokenize_prompt(data_point):
     full_prompt=generate_prompt(data_point)
-    tokenized_full_prompt=tokenize(user_prompt,add_eos_token=False)
-    user_prompt_len=len(tokenized_user_prompt["input_ids"])
+    tokenized_full_prompt=tokenize(full_prompt,tokenizer,cutoff_len,add_eos_token=False)
+    user_prompt_len=len(tokenized_full_prompt["input_ids"])
     tokenized_full_prompt["labels"] = [
                                                   -100
                                               ] * user_prompt_len + tokenized_full_prompt["labels"][
@@ -53,3 +53,40 @@ def generate_prompt(data_point):
 ### Response:
 {output_text}"""
     return prompt
+def format_gsm8k_with_apply_chat_template(example):
+        question = example["question"].strip()
+        answer = example["answer"].strip()
+
+        q_template ='Given the following problem, reason and give a final answer to the problem.\nProblem: {quest}\nYour response should end with "The final answer is [answer]" where [answer] is the response to the problem.'
+        cleanup_pattern = re.compile(r'\$?<<.*?>>')
+        parts = answer.split("####")
+        raw_reasoning = parts[0].strip()
+        final_ans = parts[1].strip() if len(parts) > 1 else ""
+
+        reasoning = cleanup_pattern.sub("", raw_reasoning)
+        reasoning = reasoning.replace("\n", " ").strip()
+
+        usr = (
+            "Given the following problem, reason and give a final answer to the problem.\n"
+            f"Problem: {question}\n"
+            'Your response should end with "The final answer is [answer]" where [answer] is the response to the problem.\n\n'
+            
+        )
+        asst = (f"{reasoning}"
+                f"The final answer is {final_ans}\n")
+        
+        conversation = [
+            # {"role": "system", "content": "You are a helpful assistant that's good at solving math problems step by step."},
+            # {"role":"user", "content":""},
+            {"role": "user", "content": usr},
+            {"role": "assistant", "content": asst}
+        ]
+        
+        # Apply the model's chat template
+        formatted_text = tokenizer.apply_chat_template(
+            conversation,
+            tokenize=False,
+            add_generation_prompt=False
+        )
+        
+        return {"text": formatted_text}
